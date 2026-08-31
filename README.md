@@ -10,18 +10,26 @@
 
 ## 快速開始
 
-1. 用**桌面版 Chrome / Edge**（Web Serial API 僅支援 Chromium 系）。
-2. 啟動本機伺服器（雙擊 `serve.bat`，或執行）：
+一律使用**桌面版 Chrome / Edge**（Web Serial API 僅支援 Chromium 系瀏覽器）。
+以下三種開啟方式擇一，功能完全相同：
 
-```bash
-python -m http.server 8080
-```
+| 方式 | 做法 | 適用 |
+|---|---|---|
+| **線上版** | 直接開部署好的網址 | 給廠商測試，零安裝 |
+| **雙擊開啟** | 對 `index.html` 按右鍵 → 用 Chrome 開啟 | 已實測可用，不需要任何工具 |
+| **本機伺服器** | 雙擊 `serve.bat`，開 <http://localhost:8080> | 開發時改檔案立即重整 |
 
-3. 開啟 <http://localhost:8080>
-4. 按「選擇串列埠」挑 USB-TTL 轉換器 → 設定 Baudrate（**9600** 為 A4.00 版，舊版為 1200）→ 按「連線」。
+接著：按「選擇串列埠」挑 USB-TTL 轉換器 → 設定 Baudrate（**9600** 為 A4.00 版，舊版為 1200）→ 按「連線」。
 
 > 沒有硬體時，勾選 **「模擬下控」** 再按連線，會啟用內建的按鍵板模擬器，
 > 可完整驗證協定收送、解析、自動回覆與 UI 流程。
+
+### 部署（GitHub Pages）
+
+專案是純靜態前端，無建置步驟，直接從分支發布即可：
+
+Settings → Pages → Source 選 **Deploy from a branch** → 分支 `main`、資料夾 `/ (root)` → Save。
+約一分鐘後網址就會出現在同一頁。根目錄的 `.nojekyll` 用來停用 Jekyll 前處理。
 
 ### 接線
 
@@ -108,7 +116,8 @@ docs/PROTOCOL.md    協定文件
 
 ## 注意事項
 
-- Web Serial API 需要安全環境（`https://` 或 `http://localhost`）；直接以 `file://` 開啟可能無法選埠。
+- Web Serial API 需要安全環境。`https://`、`http://localhost` 與本機 `file://` 都算安全環境（`file://` 已實測可用）；
+  但**區網 IP 不行**（例如 `http://192.168.1.20:8080`），Chrome 會直接隱藏 `navigator.serial`，程式會顯示「不支援」橫幅。
 - 一個串列埠同時只能被一個程式佔用，測試前請關閉其他終端機軟體。
 - 表頭同時標註 9600（A4.00）與 1200（舊版）兩種鮑率，請依實際韌體版本選擇。
 - 舊版（20170516）文件的速度範圍為 `0x0A~0xFA`、坡度 `0x00~0x0F`，與 2026 版不同，本工具以 2026 版為準。
