@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# 編輯器 / 系統
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp
+
+# 暫存
+*.log
+*.tmp
+uart-log-*.csv

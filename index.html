@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>履帶跑步機 UART 工程上控台</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">▶</span>
+    <div>
+      <h1>履帶跑步機 UART 工程上控台</h1>
+      <p class="sub">TFT 主機（上控）↔ Yade MCU 按鍵板（下控）· 6-byte 定長協定</p>
+    </div>
+  </div>
+
+  <div class="conn">
+    <label class="field">
+      <span>Baudrate</span>
+      <select id="baud">
+        <option value="9600" selected>9600（A4.00）</option>
+        <option value="1200">1200（舊版）</option>
+        <option value="4800">4800</option>
+        <option value="19200">19200</option>
+        <option value="38400">38400</option>
+        <option value="57600">57600</option>
+        <option value="115200">115200</option>
+      </select>
+    </label>
+
+    <label class="switch" title="不接硬體，改用內建下控模擬器">
+      <input type="checkbox" id="simMode">
+      <span>模擬下控</span>
+    </label>
+
+    <button id="btnPick" class="btn ghost">選擇串列埠</button>
+    <button id="btnConn" class="btn primary">連線</button>
+
+    <div class="status" id="statusBox">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">未連線</span>
+    </div>
+  </div>
+</header>
+
+<div id="unsupported" class="banner hidden">
+  此瀏覽器不支援 <b>Web Serial API</b>。請使用桌面版 Chrome / Edge（並以 <code>http://localhost</code> 開啟），
+  或勾選「模擬下控」在無硬體情況下開發。
+</div>
+
+<main class="grid">
+
+  <!-- ─────────────── 控制台 ─────────────── -->
+  <section class="panel">
+    <h2>控制台</h2>
+
+    <div class="row modes">
+      <label class="seg"><input type="radio" name="mode" value="speed" checked><span>速度模式</span></label>
+      <label class="seg"><input type="radio" name="mode" value="resist"><span>阻力模式</span></label>
+      <span class="hint" title="協定規定：切換模式前必須先送停機指令 0x02">切換前自動送 0x02 停機</span>
+    </div>
+
+    <div class="row bigbtns">
+      <button id="btnRun" class="btn run" disabled>啟動<small>0x01 運行指令</small></button>
+      <button id="btnStop" class="btn stop" disabled>停機<small>0x02</small></button>
+    </div>
+
+    <div class="ctrl" id="ctrlSpeed">
+      <div class="ctrl-head">
+        <label>速度</label>
+        <div class="val"><span id="speedVal">0.5</span> <em>km/h</em> <code id="speedHex">0x05</code></div>
+      </div>
+      <div class="ctrl-body">
+        <button class="btn step" data-step="speed" data-dir="-1">−</button>
+        <input type="range" id="speed" min="0.5" max="20" step="0.1" value="0.5">
+        <button class="btn step" data-step="speed" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="ctrl" id="ctrlResist" hidden>
+      <div class="ctrl-head">
+        <label>阻力</label>
+        <div class="val"><span id="resistVal">0</span> <em>段</em> <code id="resistHex">0x00</code></div>
+      </div>
+      <div class="ctrl-body">
+        <button class="btn step" data-step="resist" data-dir="-1">−</button>
+        <input type="range" id="resist" min="0" max="100" step="1" value="0">
+        <button class="btn step" data-step="resist" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <label>揚昇</label>
+        <div class="val"><span id="inclineVal">0</span> <em>段</em> <code id="inclineHex">0x00</code>
+          <span class="max" id="inclineMax">上限 20</span></div>
+      </div>
+      <div class="ctrl-body">
+        <button class="btn step" data-step="incline" data-dir="-1">−</button>
+        <input type="range" id="incline" min="0" max="20" step="1" value="0">
+        <button class="btn step" data-step="incline" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <label class="switch inline">
+      <input type="checkbox" id="liveSend" checked>
+      <span>調整即時送出運行指令（運轉中）</span>
+    </label>
+
+    <h3>系統指令</h3>
+    <div class="chips">
+      <button class="btn chip" data-tx="0x0B">系統待機 0x0B</button>
+      <button class="btn chip" data-tx="0x55">存活訊號 0x55</button>
+    </div>
+
+    <div class="opt-row">
+      <label class="switch inline">
+        <input type="checkbox" id="autoKeepalive">
+        <span>自動送存活訊號</span>
+      </label>
+      <label class="field tiny">
+        <span>週期(ms)</span>
+        <input type="number" id="kaInterval" value="1000" min="200" step="100">
+      </label>
+      <span class="hint" id="kaRtt">—</span>
+    </div>
+
+    <label class="switch inline">
+      <input type="checkbox" id="autoRunReply" checked>
+      <span>收到 0x03 / 0x04 / 0x06 自動回覆運行指令 <b>0x01</b>（協定要求）</span>
+    </label>
+    <label class="switch inline sub">
+      <input type="checkbox" id="replyWhenStopped">
+      <span>停機狀態也回覆 <b class="danger">（會直接啟動機器）</b></span>
+    </label>
+
+    <h3>揚升工程模式</h3>
+    <div class="eng">
+      <button id="btnEng" class="btn" disabled>進入工程模式 0xCA</button>
+      <div class="eng-state">
+        <span class="pill" id="engPill">未進入</span>
+        <span>目前揚升值 <b id="engLift">—</b> 段</span>
+      </div>
+      <p class="hint">未收到 0xC7 回應時每 5 秒自動重送；離開工程模式需拔安全鎖。</p>
+    </div>
+  </section>
+
+  <!-- ─────────────── 狀態 ─────────────── -->
+  <section class="panel">
+    <h2>即時狀態</h2>
+
+    <div class="gauges">
+      <div class="gauge">
+        <label id="gSpeedLabel">帶速（設定值） <code>0x01</code></label>
+        <div class="num"><span id="gSpeed">0.0</span><em>km/h</em></div>
+      </div>
+      <div class="gauge">
+        <label>累計步數 <code>0xC0</code></label>
+        <div class="num"><span id="gSteps">0</span><em>步</em></div>
+      </div>
+      <div class="gauge">
+        <label>心率 <code>0x09</code></label>
+        <div class="num"><span id="gHr">—</span><em>bpm</em></div>
+      </div>
+      <div class="gauge">
+        <label>安全鎖</label>
+        <div class="num small"><span id="gLock" class="tag">未知</span></div>
+      </div>
+      <div class="gauge">
+        <label>運行狀態</label>
+        <div class="num small"><span id="gRun" class="tag">停止</span></div>
+      </div>
+      <div class="gauge">
+        <label>下控回應</label>
+        <div class="num small"><span id="gAlive" class="tag">—</span></div>
+      </div>
+    </div>
+
+    <h3>異常 <button id="btnClearErr" class="btn mini ghost">清除</button></h3>
+    <div id="errBox" class="errbox empty">目前無異常</div>
+
+    <h3>通訊統計</h3>
+    <div class="stats">
+      <div><label>送出框</label><b id="stTx">0</b></div>
+      <div><label>接收框</label><b id="stRx">0</b></div>
+      <div><label>校驗錯誤</label><b id="stBad" class="warn">0</b></div>
+      <div><label>雜訊位元組</label><b id="stNoise" class="warn">0</b></div>
+      <div><label>TX bytes</label><b id="stTxB">0</b></div>
+      <div><label>RX bytes</label><b id="stRxB">0</b></div>
+    </div>
+
+    <div id="simPanel" class="simpanel hidden">
+      <h3>下控模擬器（模擬按鍵板動作）</h3>
+      <div class="chips">
+        <button class="btn chip" data-sim="start">START 0x00</button>
+        <button class="btn chip" data-sim="stop">STOP 0x02</button>
+        <button class="btn chip" data-sim="speedAdj">速度調整 0x03</button>
+        <button class="btn chip" data-sim="inclineAdj">坡度調整 0x04</button>
+        <button class="btn chip" data-sim="resistAdj">阻力調整 0x06</button>
+        <button class="btn chip" data-sim="lockOpen">安全鎖斷開 0x05</button>
+        <button class="btn chip" data-sim="lockClose">安全鎖合上 0x0A</button>
+        <button class="btn chip" data-sim="hubReset">Hub Reset 0x07</button>
+        <button class="btn chip" data-sim="wakeUp">Wake Up 0x08</button>
+        <button class="btn chip" data-sim="noSpeedFb">無速度迴授 0xD0</button>
+        <button class="btn chip" data-sim="buzzShort">蜂鳴短 0x25</button>
+        <button class="btn chip" data-sim="buzzLong">蜂鳴長 0x26</button>
+        <button class="btn chip" data-sim="garbage">注入雜訊</button>
+      </div>
+      <div class="opt-row">
+        <label class="field tiny"><span>注入錯誤碼</span>
+          <select id="simErr"></select>
+        </label>
+        <button class="btn mini" data-sim="error">送出</button>
+        <label class="field tiny"><span>工程揚升值</span>
+          <input type="number" id="simLift" value="0" min="0" max="255">
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 通訊記錄 ─────────────── -->
+  <section class="panel log-panel">
+    <h2>通訊記錄
+      <span class="toolbar">
+        <select id="logFilter">
+          <option value="all">全部</option>
+          <option value="tx">只看 TX</option>
+          <option value="rx">只看 RX</option>
+          <option value="err">只看異常</option>
+        </select>
+        <label class="switch inline mini"><input type="checkbox" id="logScroll" checked><span>自動捲動</span></label>
+        <button id="btnPause" class="btn mini ghost">暫停</button>
+        <button id="btnClearLog" class="btn mini ghost">清除</button>
+        <button id="btnExport" class="btn mini ghost">匯出 CSV</button>
+      </span>
+    </h2>
+
+    <div class="loghead"><span>時間</span><span>向</span><span>HEX</span><span>解碼</span></div>
+    <div id="log" class="log"></div>
+
+    <h3>手動送框</h3>
+    <div class="manual">
+      <label class="field tiny"><span>CMD</span><input id="mCmd" value="01" maxlength="4"></label>
+      <label class="field tiny"><span>D1</span><input id="mD1" value="00" maxlength="4"></label>
+      <label class="field tiny"><span>D2</span><input id="mD2" value="00" maxlength="4"></label>
+      <label class="field tiny"><span>SUM</span><input id="mSum" readonly class="ro"></label>
+      <button id="btnSend" class="btn primary" disabled>送出</button>
+    </div>
+    <div class="manual raw">
+      <label class="field grow"><span>原始位元組（HEX，直接送出不補校驗）</span>
+        <input id="mRaw" placeholder="AA BB 01 64 05 15"></label>
+      <button id="btnSendRaw" class="btn" disabled>送原始</button>
+    </div>
+    <p class="hint" id="mPreview">預覽：AA BB 01 00 00 66</p>
+
+    <h3>命令速查 <span class="hint">點擊即帶入手動送框</span></h3>
+    <div id="cmdTable" class="cmdtable"></div>
+  </section>
+</main>
+
+<script src="js/protocol.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/serial.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
