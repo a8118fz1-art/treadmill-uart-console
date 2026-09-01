@@ -315,3 +315,17 @@ input[type=range]:disabled { opacity: .4; }
 
 .field.downlink { margin-bottom: 14px; }
 .field.downlink select { width: 100%; font-size: 12px; }
+
+/* 狀態列（運行 / 安全鎖 / 下控回應） */
+.statusrow { display: flex; gap: 8px; margin-bottom: 4px; }
+.statusrow > div {
+  flex: 1; background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.statusrow label { font-size: 10px; color: var(--txt3); }
+.statusrow .tag { font-size: 11px; }
+.gauge label .calc {
+  font-size: 8.5px; color: var(--txt3); border: 1px solid var(--line);
+  border-radius: 3px; padding: 0 3px; margin-left: 2px;
+}

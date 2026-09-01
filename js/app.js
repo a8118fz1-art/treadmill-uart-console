@@ -36,7 +36,10 @@
     stats: { txFrames: 0, rxFrames: 0, badSum: 0, noise: 0 },
     lastLiveSend: 0,
     lastAdjustKey: null,
-    lastAdjustAt: 0
+    lastAdjustAt: 0,
+    tripMs: 0,          // 運轉累計時間（上控自行計算）
+    tripKm: 0,          // 累計距離（上控自行計算）
+    tripTickAt: 0
   };
 
   var parser = new P.FrameParser({ onFrame: onFrame, onError: onParseError });
@@ -124,6 +127,40 @@
     pushEntry({ dir: 'TX', hex: P.bytesToHex(bytes), note: '原始位元組（未驗校驗和）' });
     LINK.send(bytes).catch(function (err) { event('送出失敗：' + err.message); });
     updateStats();
+  }
+
+  /**
+   * 目前實際帶速 km/h。速度模式等於上控下達的設定值，
+   * 阻力模式取下控以 0x0C 回傳的實測值（協定規定只有阻力模式會回傳）。
+   */
+  function beltSpeed() {
+    if (!S.running) return 0;
+    if (S.mode === 'resist') return S.rtSpeed === null ? 0 : S.rtSpeed;
+    return S.speed;
+  }
+
+  /** 距離與運轉時間由上控自行累計，協定不傳這兩項。 */
+  function tripTick() {
+    var now = Date.now();
+    if (!S.running || !LINK.connected) { S.tripTickAt = now; return; }
+    if (!S.tripTickAt) { S.tripTickAt = now; return; }
+    var dt = now - S.tripTickAt;
+    S.tripTickAt = now;
+    if (dt <= 0 || dt > 5000) return;          // 分頁被凍結時不要灌入大段時間
+    S.tripMs += dt;
+    S.tripKm += beltSpeed() * (dt / 3600000);
+  }
+
+  function resetTrip() {
+    S.steps = 0; S.tripMs = 0; S.tripKm = 0; S.tripTickAt = Date.now();
+    render();
+  }
+
+  function fmtDuration(ms) {
+    var t = Math.floor(ms / 1000);
+    var h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+    function p(n) { return String(n).padStart(2, '0'); }
+    return (h > 0 ? p(h) + ':' : '') + p(m) + ':' + p(sec);
   }
 
   /** 目前模式的運行指令 opcode：速度模式 0x01、阻力模式 0x06（見 docs/PROTOCOL.md §7）。 */
@@ -353,6 +390,11 @@
     }
     $('gSteps').textContent = S.steps;
     $('gHr').textContent = S.hr === null ? '—' : S.hr;
+    $('gIncline').textContent = S.incline;
+    $('gResist').textContent = S.resist;
+    $('gResistBox').hidden = (S.mode !== 'resist');
+    $('gDist').textContent = S.tripKm.toFixed(2);
+    $('gTime').textContent = fmtDuration(S.tripMs);
 
     var lock = $('gLock');
     lock.textContent = S.lock === null ? '未知' : (S.lock ? '合上' : '斷開');
@@ -610,6 +652,8 @@
     // 工程模式
     $('btnEng').addEventListener('click', enterEng);
 
+    $('btnResetTrip').addEventListener('click', resetTrip);
+
     // 異常
     $('btnClearErr').addEventListener('click', function () { S.errors = []; renderErrors(); });
 
@@ -720,6 +764,9 @@
     setConnUI(false);
     syncSliders();
     render();
+
+    // 距離／運轉時間累計
+    setInterval(function () { tripTick(); render(); }, 1000);
 
     // 存活逾時監看
     setInterval(function () {

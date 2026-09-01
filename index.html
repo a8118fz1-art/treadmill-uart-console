@@ -153,30 +153,41 @@
   <section class="panel">
     <h2>即時狀態</h2>
 
+    <div class="statusrow">
+      <div><label>運行</label><span id="gRun" class="tag">停止</span></div>
+      <div><label>安全鎖</label><span id="gLock" class="tag">未知</span></div>
+      <div><label>下控回應</label><span id="gAlive" class="tag">—</span></div>
+    </div>
+
+    <h3>運動儀表 <button id="btnResetTrip" class="btn mini ghost">歸零</button></h3>
     <div class="gauges">
       <div class="gauge">
         <label id="gSpeedLabel">帶速（設定值） <code>0x01</code></label>
         <div class="num"><span id="gSpeed">0.0</span><em>km/h</em></div>
       </div>
       <div class="gauge">
-        <label>累計步數 <code>0xC0</code></label>
-        <div class="num"><span id="gSteps">0</span><em>步</em></div>
+        <label>揚昇 <code>D2</code></label>
+        <div class="num"><span id="gIncline">0</span><em>段</em></div>
+      </div>
+      <div class="gauge" id="gResistBox" hidden>
+        <label>阻力 <code>0x06 D1</code></label>
+        <div class="num"><span id="gResist">0</span><em>段</em></div>
       </div>
       <div class="gauge">
         <label>心率 <code>0x09</code></label>
         <div class="num"><span id="gHr">—</span><em>bpm</em></div>
       </div>
       <div class="gauge">
-        <label>安全鎖</label>
-        <div class="num small"><span id="gLock" class="tag">未知</span></div>
+        <label>累計步數 <code>0xC0</code></label>
+        <div class="num"><span id="gSteps">0</span><em>步</em></div>
       </div>
       <div class="gauge">
-        <label>運行狀態</label>
-        <div class="num small"><span id="gRun" class="tag">停止</span></div>
+        <label>距離 <span class="calc">上控計算</span></label>
+        <div class="num"><span id="gDist">0.00</span><em>km</em></div>
       </div>
       <div class="gauge">
-        <label>下控回應</label>
-        <div class="num small"><span id="gAlive" class="tag">—</span></div>
+        <label>運轉時間 <span class="calc">上控計算</span></label>
+        <div class="num"><span id="gTime">00:00</span></div>
       </div>
     </div>
 
