@@ -50,9 +50,9 @@
         : '速度 ' + f1(d1 / 10) + ' km/h ／ 揚昇 ' + d2 + ' 段';
     } };
   TABLE[CMD.STOP]        = { name: '停機指令',             dir: BI,   group: 'ctrl' };
-  TABLE[CMD.SPEED_ADJ]   = { name: '速度調整指令',          dir: BI,   group: 'adj', needsRunReply: true,
+  TABLE[CMD.SPEED_ADJ]   = { name: '速度調整指令',          dir: DOWN, group: 'adj', needsRunReply: true,
     decode: function (d1, d2) { return '速度 ' + f1(d1 / 10) + ' km/h ／ 揚昇 ' + d2 + ' 段'; } };
-  TABLE[CMD.INCLINE_ADJ] = { name: '坡度調整指令',          dir: BI,   group: 'adj', needsRunReply: true,
+  TABLE[CMD.INCLINE_ADJ] = { name: '坡度調整指令',          dir: DOWN, group: 'adj', needsRunReply: true,
     decode: function (d1, d2) { return '速度 ' + f1(d1 / 10) + ' km/h ／ 揚昇 ' + d2 + ' 段'; } };
   TABLE[CMD.LOCK_OPEN]   = { name: '安全鎖斷開',           dir: DOWN, group: 'lock' };
   TABLE[CMD.RESIST_ADJ]  = { name: '阻力調整指令',          dir: BI,   group: 'adj', needsRunReply: true,

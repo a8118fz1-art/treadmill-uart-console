@@ -59,14 +59,11 @@
         s.running = false;
         s.actualSpeed = 0;
         break;
-      // 0x03 / 0x04 / 0x06 由上控下行時視為設定值（實機觀測的解讀），
-      // 只改設定不改運轉狀態——啟停仍由 0x01 / 0x02 決定。
-      case P.CMD.SPEED_ADJ:
-      case P.CMD.INCLINE_ADJ:
-        s.speedRaw = f.d1;
-        s.incline = f.d2;
-        break;
+      // 0x06 下行 = 阻力模式的運行指令（見 docs/PROTOCOL.md §7）。
+      // 0x03 / 0x04 只由按鍵板上行，上控不會送，故此處不處理。
       case P.CMD.RESIST_ADJ:
+        s.running = true;
+        s.mode = 'resist';
         s.resistance = f.d1;
         s.incline = f.d2;
         break;

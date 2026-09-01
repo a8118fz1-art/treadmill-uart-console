@@ -63,11 +63,11 @@
       <span class="hint" title="協定規定：切換模式前必須先送停機指令 0x02">切換前自動送 0x02 停機</span>
     </div>
 
-    <label class="field downlink">
-      <span>下行指令集 — 調整時送哪個命令</span>
-      <select id="downlink">
-        <option value="setpoint" selected>0x03 / 0x04 / 0x06 分項設定（實機觀測）</option>
-        <option value="run">0x01 運行指令帶新值（文件字面）</option>
+    <label class="field downlink" id="resistRunField" hidden>
+      <span>阻力模式的運行指令</span>
+      <select id="resistRun">
+        <option value="06" selected>0x06 當運行指令（D1=阻力、D2=揚昇）</option>
+        <option value="01">0x01 運行指令帶阻力值</option>
       </select>
     </label>
 
@@ -138,7 +138,7 @@
 
     <label class="switch inline">
       <input type="checkbox" id="autoRunReply" checked>
-      <span>收到 0x03 / 0x04 / 0x06 自動回覆運行指令 <b>0x01</b>（協定要求）</span>
+      <span>收到按鍵板上行的 0x03 / 0x04 / 0x06 自動回覆<b>當前模式的運行指令</b>（協定要求）</span>
     </label>
     <label class="switch inline sub">
       <input type="checkbox" id="replyWhenStopped">
