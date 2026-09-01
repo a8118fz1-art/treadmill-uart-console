@@ -126,16 +126,9 @@
     updateStats();
   }
 
-  /**
-   * 目前模式的運行指令 opcode。
-   * 速度模式一律 0x01（已確認）；阻力模式可選 0x06 或 0x01，見 docs/PROTOCOL.md §7。
-   */
+  /** 目前模式的運行指令 opcode：速度模式 0x01、阻力模式 0x06（見 docs/PROTOCOL.md §7）。 */
   function runCmd() {
-    if (S.mode === 'resist') {
-      var el = $('resistRun');
-      if (!el || el.value === '06') return P.CMD.RESIST_ADJ;
-    }
-    return P.CMD.RUN;
+    return S.mode === 'resist' ? P.CMD.RESIST_ADJ : P.CMD.RUN;
   }
 
   function sendRun(note) {
@@ -369,6 +362,7 @@
     run.textContent = S.running ? '運轉中' : '停止';
     run.className = 'tag' + (S.running ? ' ok' : '');
     $('btnRun').classList.toggle('active', S.running);
+    $('btnRunCmd').textContent = P.hex(runCmd()) + ' 運行指令';
 
     var alive = $('gAlive');
     if (!LINK.connected) { alive.textContent = '—'; alive.className = 'tag'; }
@@ -550,7 +544,6 @@
         if (LINK.sim()) LINK.sim().trigger('setMode', S.mode);
         $('ctrlSpeed').hidden = (S.mode === 'resist');
         $('ctrlResist').hidden = (S.mode !== 'resist');
-        $('resistRunField').hidden = (S.mode !== 'resist');
         $('incline').max = inclineMax();
         S.incline = clamp(S.incline, 0, inclineMax());
         syncSliders();
@@ -593,14 +586,6 @@
         syncSliders();
         if (S.running && $('liveSend').checked && LINK.connected) sendAdjust();
       });
-    });
-
-    // 阻力模式運行指令切換
-    $('resistRun').addEventListener('change', function () {
-      event(this.value === '06'
-        ? '阻力模式運行指令：0x06（D1 = 阻力、D2 = 揚昇）'
-        : '阻力模式運行指令：0x01（D1 帶阻力值）');
-      if (S.running && LINK.connected) sendRun('（運行指令改變，重下設定）');
     });
 
     // 快速指令
