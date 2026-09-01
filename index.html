@@ -63,6 +63,14 @@
       <span class="hint" title="協定規定：切換模式前必須先送停機指令 0x02">切換前自動送 0x02 停機</span>
     </div>
 
+    <label class="field downlink">
+      <span>下行指令集 — 調整時送哪個命令</span>
+      <select id="downlink">
+        <option value="setpoint" selected>0x03 / 0x04 / 0x06 分項設定（實機觀測）</option>
+        <option value="run">0x01 運行指令帶新值（文件字面）</option>
+      </select>
+    </label>
+
     <div class="row bigbtns">
       <button id="btnRun" class="btn run" disabled>啟動<small>0x01 運行指令</small></button>
       <button id="btnStop" class="btn stop" disabled>停機<small>0x02</small></button>

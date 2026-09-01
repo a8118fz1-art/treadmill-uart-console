@@ -34,7 +34,9 @@
     entries: [],
     port: null,
     stats: { txFrames: 0, rxFrames: 0, badSum: 0, noise: 0 },
-    lastLiveSend: 0
+    lastLiveSend: 0,
+    lastAdjustKey: null,
+    lastAdjustAt: 0
   };
 
   var parser = new P.FrameParser({ onFrame: onFrame, onError: onParseError });
@@ -127,6 +129,35 @@
   function sendRun(note) {
     var d1 = S.mode === 'resist' ? S.resist : P.speedToRaw(S.speed);
     send(P.CMD.RUN, d1, S.incline, note);
+  }
+
+  /**
+   * 調整送出。下行指令集有兩種解讀（見 docs/PROTOCOL.md §7）：
+   *   'setpoint' — 速度走 0x03、坡度走 0x04、阻力走 0x06（實機觀測，預設）
+   *   'run'      — 一律用 0x01 運行指令帶新值（協定文件字面）
+   * which: 'speed' | 'incline' | 'resist'，決定 setpoint 模式下用哪個 opcode。
+   */
+  function sendAdjust(which, note) {
+    // 滑桿的 input 與 change 會各觸發一次，放開時會產生重複框；短時間內完全相同的框直接略過
+    var key = (S.mode === 'resist' ? S.resist : P.speedToRaw(S.speed)) + ':' + S.incline + ':' + downlinkSet() + ':' + which;
+    var now = Date.now();
+    if (key === S.lastAdjustKey && now - S.lastAdjustAt < 250) return;
+    S.lastAdjustKey = key;
+    S.lastAdjustAt = now;
+
+    if (downlinkSet() === 'run') { sendRun(note); return; }
+    if (S.mode === 'resist') {
+      send(P.CMD.RESIST_ADJ, S.resist, S.incline, note);
+    } else if (which === 'incline') {
+      send(P.CMD.INCLINE_ADJ, P.speedToRaw(S.speed), S.incline, note);
+    } else {
+      send(P.CMD.SPEED_ADJ, P.speedToRaw(S.speed), S.incline, note);
+    }
+  }
+
+  function downlinkSet() {
+    var el = $('downlink');
+    return el ? el.value : 'setpoint';
   }
 
   // ── 接收 ──────────────────────────────────────────────────
@@ -548,11 +579,11 @@
         renderCtrlValues();
         if (S.running && $('liveSend').checked && LINK.connected) {
           var now = Date.now();
-          if (now - S.lastLiveSend > 120) { S.lastLiveSend = now; sendRun(); }
+          if (now - S.lastLiveSend > 120) { S.lastLiveSend = now; sendAdjust(key); }
         }
       });
       el.addEventListener('change', function () {
-        if (S.running && $('liveSend').checked && LINK.connected) sendRun();
+        if (S.running && $('liveSend').checked && LINK.connected) sendAdjust(key);
       });
     }
     onSlide('speed', $('speed'), true);
@@ -566,8 +597,15 @@
         if (k === 'incline') S.incline = clamp(S.incline + dir, 0, inclineMax());
         if (k === 'resist') S.resist = clamp(S.resist + dir, 0, 100);
         syncSliders();
-        if (S.running && $('liveSend').checked && LINK.connected) sendRun();
+        if (S.running && $('liveSend').checked && LINK.connected) sendAdjust(k);
       });
+    });
+
+    // 下行指令集切換
+    $('downlink').addEventListener('change', function () {
+      event(this.value === 'run'
+        ? '下行指令集：改用 0x01 運行指令帶新值（協定文件字面解讀）'
+        : '下行指令集：改用 0x03 / 0x04 / 0x06 分項設定（實機觀測解讀）');
     });
 
     // 快速指令

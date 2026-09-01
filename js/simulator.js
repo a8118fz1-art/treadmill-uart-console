@@ -59,6 +59,17 @@
         s.running = false;
         s.actualSpeed = 0;
         break;
+      // 0x03 / 0x04 / 0x06 由上控下行時視為設定值（實機觀測的解讀），
+      // 只改設定不改運轉狀態——啟停仍由 0x01 / 0x02 決定。
+      case P.CMD.SPEED_ADJ:
+      case P.CMD.INCLINE_ADJ:
+        s.speedRaw = f.d1;
+        s.incline = f.d2;
+        break;
+      case P.CMD.RESIST_ADJ:
+        s.resistance = f.d1;
+        s.incline = f.d2;
+        break;
       case P.CMD.KEEPALIVE:                             // 0x55 存活訊號 → 原碼回覆
         this._send(P.CMD.KEEPALIVE, 0x00, 0x00);
         break;
