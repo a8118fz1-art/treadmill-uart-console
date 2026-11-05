@@ -39,7 +39,8 @@
     lastAdjustAt: 0,
     tripMs: 0,          // 運轉累計時間（上控自行計算）
     tripKm: 0,          // 累計距離（上控自行計算）
-    tripTickAt: 0
+    tripTickAt: 0,
+    lastStopSentAt: 0
   };
 
   var parser = new P.FrameParser({ onFrame: onFrame, onError: onParseError });
@@ -208,7 +209,7 @@
 
     switch (f.cmd) {
       case P.CMD.START:
-        event('下控按下 START —— 依協定需由上控回覆運行指令（' + P.hex(runCmd()) + '）才會啟動');
+        replyStart();
         break;
 
       case P.CMD.RUN:
@@ -221,6 +222,7 @@
       case P.CMD.STOP:
         S.running = false;
         S.rtSpeed = null;
+        replyStop();
         break;
 
       case P.CMD.SPEED_ADJ:
@@ -295,6 +297,43 @@
         break;
     }
     render();
+  }
+
+  /**
+   * 按鍵板按 START（上行 0x00）只是通知，上控要回運行指令，按鍵板轉給下控才會啟動。
+   */
+  function replyStart() {
+    if (!$('autoRunReply').checked) {
+      event('收到按鍵板 START，自動回覆已關閉 → 未啟動');
+      return;
+    }
+    if (S.lock === false) {
+      event('收到按鍵板 START，但安全鎖為斷開 → 不回覆運行指令', true);
+      return;
+    }
+    S.running = true;
+    sendRun('← 依協定回覆按鍵板 START');
+  }
+
+  /**
+   * 按鍵板按 STOP（上行 0x02）同樣要由上控回 0x02，按鍵板轉給下控才會停。
+   * 若按鍵板會把上控的 0x02 回送上來，1 秒內不重覆回覆，避免互相回送形成迴圈。
+   * 停機重送無害，所以寧可多送不要漏送。
+   */
+  function replyStop() {
+    if (!$('autoRunReply').checked) {
+      event('收到按鍵板 STOP，自動回覆已關閉 → 未回覆 0x02', true);
+      return;
+    }
+    if (Date.now() - S.lastStopSentAt < 1000) return;
+    sendStop('← 依協定回覆按鍵板 STOP');
+  }
+
+  function sendStop(note) {
+    S.running = false;
+    S.rtSpeed = null;
+    S.lastStopSentAt = Date.now();
+    send(P.CMD.STOP, 0, 0, note);
   }
 
   function autoRunReply() {
@@ -596,10 +635,7 @@
 
     // 運轉
     $('btnRun').addEventListener('click', function () { S.running = true; sendRun(); render(); });
-    $('btnStop').addEventListener('click', function () {
-      S.running = false; S.rtSpeed = null;
-      send(P.CMD.STOP, 0, 0); render();
-    });
+    $('btnStop').addEventListener('click', function () { sendStop(); render(); });
 
     // 滑桿
     function onSlide(key, el, isFloat) {

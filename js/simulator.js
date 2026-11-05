@@ -119,7 +119,7 @@
     var s = this.state;
     switch (what) {
       case 'start':      this._send(P.CMD.START, 0, 0); break;
-      case 'stop':       s.running = false; this._send(P.CMD.STOP, 0, 0); break;
+      case 'stop':       this._send(P.CMD.STOP, 0, 0); break;   // 等上控回 0x02 才真的停
       case 'speedAdj':   this._send(P.CMD.SPEED_ADJ, a & 0xFF, b & 0xFF); break;
       case 'inclineAdj': this._send(P.CMD.INCLINE_ADJ, a & 0xFF, b & 0xFF); break;
       case 'resistAdj':  this._send(P.CMD.RESIST_ADJ, a & 0xFF, b & 0xFF); break;
