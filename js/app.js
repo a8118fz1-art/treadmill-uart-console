@@ -164,6 +164,11 @@
     return (h > 0 ? p(h) + ':' : '') + p(m) + ':' + p(sec);
   }
 
+  /** 網頁上調整速度／揚昇／阻力時，送 0x25 讓按鍵板蜂鳴器短鳴一聲（接在運行指令之後）。 */
+  function beep() {
+    if (LINK.connected) send(P.CMD.BUZZ_SHORT, 0, 0);
+  }
+
   /** 目前模式的運行指令 opcode：速度模式 0x01、阻力模式 0x06（見 docs/PROTOCOL.md §7）。 */
   function runCmd() {
     return S.mode === 'resist' ? P.CMD.RESIST_ADJ : P.CMD.RUN;
@@ -649,6 +654,7 @@
       });
       el.addEventListener('change', function () {
         if (S.running && $('liveSend').checked && LINK.connected) sendAdjust();
+        beep();                                    // 拖曳中不叫，放開時短鳴一聲
       });
     }
     onSlide('speed', $('speed'), true);
@@ -663,6 +669,7 @@
         if (k === 'resist') S.resist = clamp(S.resist + dir, 0, 100);
         syncSliders();
         if (S.running && $('liveSend').checked && LINK.connected) sendAdjust();
+        beep();
       });
     });
 

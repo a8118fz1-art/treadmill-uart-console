@@ -65,8 +65,8 @@
   TABLE[CMD.STANDBY]     = { name: '系統待機',             dir: UP,   group: 'sys' };
   TABLE[CMD.SPEED_FB]    = { name: '即時速度回傳',          dir: DOWN, group: 'data',
     decode: function (d1, d2) { return f1((((d1 << 8) | d2)) / 10) + ' km/h（僅阻力模式）'; } };
-  TABLE[CMD.BUZZ_SHORT]  = { name: '蜂鳴器短',             dir: DOWN, group: 'sys' };
-  TABLE[CMD.BUZZ_LONG]   = { name: '蜂鳴器長',             dir: DOWN, group: 'sys' };
+  TABLE[CMD.BUZZ_SHORT]  = { name: '蜂鳴器短',             dir: BI,   group: 'sys' };
+  TABLE[CMD.BUZZ_LONG]   = { name: '蜂鳴器長',             dir: BI,   group: 'sys' };
   TABLE[CMD.KEEPALIVE]   = { name: '存活訊號檢查',          dir: BI,   group: 'sys' };
   TABLE[CMD.STEPS]       = { name: '步數',                 dir: DOWN, group: 'data',
     decode: function (d1, d2) { return '+' + (((d1 << 8) | d2)) + ' 步（增量）'; } };
