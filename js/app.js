@@ -109,25 +109,43 @@
   function event(note, isError) { pushEntry({ dir: '--', note: note, isError: !!isError }); }
 
   // ── 送出 ──────────────────────────────────────────────────
+  /*
+   * 所有送出的框都經過這個佇列，每框之間至少隔 TX_GAP_MS。
+   * 實測：按鍵板收到緊貼在一起的兩框（例如運行指令 + 0x25）時，第二框會漏收；
+   * 單獨送則正常。9600 bps 下一框約 6.3 ms；實測 30 ms 仍會漏收，改為 100 ms。
+   */
+  var TX_GAP_MS = 100;
+  var txQueue = [];
+  var txBusy = false;
+
+  function enqueue(bytes, note) {
+    txQueue.push({ bytes: bytes, note: note });
+    if (!txBusy) drainTx();
+  }
+
+  function drainTx() {
+    var item = txQueue.shift();
+    if (!item) { txBusy = false; return; }
+    txBusy = true;
+    if (!LINK.connected) { txQueue = []; txBusy = false; event('未連線，無法送出'); return; }
+    // 先記錄再送出：模擬器是同步回覆的，否則回應會排在送出之前
+    S.stats.txFrames++;
+    pushEntry({ dir: 'TX', hex: P.bytesToHex(item.bytes), note: item.note });
+    updateStats();
+    LINK.send(item.bytes)
+      .catch(function (err) { event('送出失敗：' + err.message); })
+      .then(function () { setTimeout(drainTx, TX_GAP_MS); });
+  }
+
   function send(cmd, d1, d2, note) {
     if (!LINK.connected) { event('未連線，無法送出'); return; }
     var f = P.build(cmd, d1 || 0, d2 || 0);
-    // 先記錄再送出：模擬器是同步回覆的，否則回應會排在送出之前
-    S.stats.txFrames++;
-    pushEntry({
-      dir: 'TX', hex: P.bytesToHex(f),
-      note: P.describe(cmd, d1 || 0, d2 || 0, S.mode) + (note ? '　' + note : '')
-    });
-    LINK.send(f).catch(function (err) { event('送出失敗：' + err.message); });
-    updateStats();
+    enqueue(f, P.describe(cmd, d1 || 0, d2 || 0, S.mode) + (note ? '　' + note : ''));
   }
 
   function sendRaw(bytes) {
     if (!LINK.connected) { event('未連線，無法送出'); return; }
-    S.stats.txFrames++;
-    pushEntry({ dir: 'TX', hex: P.bytesToHex(bytes), note: '原始位元組（未驗校驗和）' });
-    LINK.send(bytes).catch(function (err) { event('送出失敗：' + err.message); });
-    updateStats();
+    enqueue(bytes, '原始位元組（未驗校驗和）');
   }
 
   /**
@@ -785,7 +803,7 @@
       box.className = 'status' + (state === 'connected' ? ' on' : state === 'error' ? ' err' : '');
       $('statusText').textContent = msg;
       if (state === 'disconnected' || state === 'error') {
-        stopKeepalive(); exitEng(); setConnUI(false); S.running = false; render();
+        txQueue = []; stopKeepalive(); exitEng(); setConnUI(false); S.running = false; render();
       }
     });
 
