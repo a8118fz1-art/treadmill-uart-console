@@ -13,6 +13,7 @@
   var S = {
     mode: 'speed',
     running: false,
+    countdown: 0,      // 啟動倒數中剩餘秒數，0 = 未倒數
     speed: 0.5,
     incline: 0,
     resist: 0,
@@ -243,6 +244,7 @@
         break;
 
       case P.CMD.STOP:
+        cancelCountdown('收到按鍵板 STOP，啟動倒數已中止');
         S.running = false;
         S.rtSpeed = null;
         replyStop();
@@ -334,8 +336,46 @@
       event('收到按鍵板 START，但安全鎖為斷開 → 不回覆運行指令', true);
       return;
     }
-    S.running = true;
-    sendRun('← 依協定回覆按鍵板 START');
+    startWithCountdown('← 依協定回覆按鍵板 START');
+  }
+
+  /*
+   * 啟動前倒數 3、2、1：每秒短鳴一次（0x25），共 3 次，倒數完才送運行指令。
+   * 網頁「啟動」鈕與按鍵板 START 都走這裡。倒數中收到 STOP、切換模式或斷線就中止。
+   */
+  var COUNTDOWN_FROM = 3;
+  var COUNTDOWN_STEP_MS = 1000;
+  var countdownTimer = null;
+
+  function startWithCountdown(note) {
+    if (S.countdown) { event('倒數中，忽略重複的啟動'); return; }
+    if (S.running) { sendRun(note); return; }       // 已在運轉，不重新倒數
+    var n = COUNTDOWN_FROM;
+    function tick() {
+      if (!LINK.connected) { cancelCountdown(); return; }
+      if (n > 0) {
+        S.countdown = n;
+        send(P.CMD.BUZZ_SHORT, 0, 0, '（啟動倒數 ' + n + '）');
+        n--;
+        countdownTimer = setTimeout(tick, COUNTDOWN_STEP_MS);
+      } else {
+        countdownTimer = null;
+        S.countdown = 0;
+        S.running = true;
+        sendRun(note);
+      }
+      render();
+    }
+    tick();
+  }
+
+  function cancelCountdown(reason) {
+    if (!S.countdown) return;
+    clearTimeout(countdownTimer);
+    countdownTimer = null;
+    S.countdown = 0;
+    if (reason) event(reason);
+    render();
   }
 
   /**
@@ -352,11 +392,14 @@
     sendStop('← 依協定回覆按鍵板 STOP');
   }
 
+  /** 停機：送 0x02，接著長鳴一聲 0x26。 */
   function sendStop(note) {
+    cancelCountdown('啟動倒數已中止');
     S.running = false;
     S.rtSpeed = null;
     S.lastStopSentAt = Date.now();
     send(P.CMD.STOP, 0, 0, note);
+    send(P.CMD.BUZZ_LONG, 0, 0, '（停機長鳴）');
   }
 
   function autoRunReply() {
@@ -463,10 +506,11 @@
     lock.className = 'tag' + (S.lock === null ? '' : (S.lock ? ' ok' : ' bad'));
 
     var run = $('gRun');
-    run.textContent = S.running ? '運轉中' : '停止';
+    run.textContent = S.countdown ? '倒數 ' + S.countdown : (S.running ? '運轉中' : '停止');
     run.className = 'tag' + (S.running ? ' ok' : '');
-    $('btnRun').classList.toggle('active', S.running);
-    $('btnRunCmd').textContent = P.hex(runCmd()) + ' 運行指令';
+    $('btnRun').classList.toggle('active', S.running || !!S.countdown);
+    $('btnRunCmd').textContent = S.countdown ? '倒數 ' + S.countdown + '…'
+                                            : P.hex(runCmd()) + ' 運行指令';
 
     var alive = $('gAlive');
     if (!LINK.connected) { alive.textContent = '—'; alive.className = 'tag'; }
@@ -640,6 +684,7 @@
       r.addEventListener('change', function () {
         if (!this.checked) return;
         if (LINK.connected) {
+          cancelCountdown('啟動倒數已中止（切換模式）');
           send(P.CMD.STOP, 0, 0, '（切換模式前依協定先停機）');
           S.running = false;
         }
@@ -657,7 +702,7 @@
     });
 
     // 運轉
-    $('btnRun').addEventListener('click', function () { S.running = true; sendRun(); render(); });
+    $('btnRun').addEventListener('click', function () { startWithCountdown(); });
     $('btnStop').addEventListener('click', function () { sendStop(); render(); });
 
     // 滑桿
@@ -803,7 +848,7 @@
       box.className = 'status' + (state === 'connected' ? ' on' : state === 'error' ? ' err' : '');
       $('statusText').textContent = msg;
       if (state === 'disconnected' || state === 'error') {
-        txQueue = []; stopKeepalive(); exitEng(); setConnUI(false); S.running = false; render();
+        cancelCountdown(); txQueue = []; stopKeepalive(); exitEng(); setConnUI(false); S.running = false; render();
       }
     });
 
