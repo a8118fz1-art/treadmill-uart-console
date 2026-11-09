@@ -340,7 +340,7 @@
   }
 
   /*
-   * 啟動前倒數 3、2、1：每秒短鳴一次（0x25），共 3 次，倒數完才送運行指令。
+   * 啟動前倒數 3、2、1：每秒短鳴一次（0x25），共 3 次；再過 1 秒長鳴一次（0x26），接著送運行指令。
    * 網頁「啟動」鈕與按鍵板 START 都走這裡。倒數中收到 STOP、切換模式或斷線就中止。
    */
   var COUNTDOWN_FROM = 3;
@@ -362,6 +362,7 @@
         countdownTimer = null;
         S.countdown = 0;
         S.running = true;
+        send(P.CMD.BUZZ_LONG, 0, 0, '（倒數結束長鳴）');
         sendRun(note);
       }
       render();
